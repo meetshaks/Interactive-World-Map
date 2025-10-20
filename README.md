@@ -79,6 +79,7 @@
 ---
 
 ## Screenshots
+> Add screenshots to `/assets/images/` and reference them here.
 
 - Sidebar + Map
   ![sidebar-map](assets/images/sidebar-map.png)
@@ -330,3 +331,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=for-the-badge&logo=github)](https://github.com/yourusername)
 
 </div>  
+
