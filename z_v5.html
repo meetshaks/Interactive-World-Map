@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive World Map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --sidebar-bg: rgba(255, 255, 255, 0.95);
+            --text-color: #333;
+            --border-color: #f0f0f0;
+            --hover-bg: rgba(102, 126, 234, 0.1);
+            --map-bg: #ffffff;
+            --country-default: #e0e0e0;
+            --country-hover: #b8c5f0;
+        }
+
+        body.dark-mode {
+            --primary-color: #8b9eea;
+            --secondary-color: #9d7cc2;
+            --bg-gradient-start: #1a1a2e;
+            --bg-gradient-end: #16213e;
+            --sidebar-bg: rgba(30, 30, 46, 0.95);
+            --text-color: #e0e0e0;
+            --border-color: #2a2a3e;
+            --hover-bg: rgba(139, 158, 234, 0.1);
+            --map-bg: #1e1e2e;
+            --country-default: #2a2a3e;
+            --country-hover: #4a4a6e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            transition: background 0.3s ease;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 60px;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .country-list {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 24px;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed .sidebar-header h2 {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 18px;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-top: 10px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed .search-box {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        body.dark-mode .search-box {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .search-box:focus {
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+        }
+
+        .country-list {
+            list-style: none;
+        }
+
+        .country-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-color);
+        }
+
+        .country-item:hover {
+            background: var(--hover-bg);
+            padding-left: 30px;
+        }
+
+        .country-item.selected {
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            font-weight: bold;
+            color: var(--primary-color);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .map-wrapper {
+            width: 100%;
+            height: 100%;
+            background: var(--map-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .map-wrapper.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 0;
+            z-index: 1000;
+        }
+
+        #worldMap {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .map-btn {
+            background: var(--sidebar-bg);
+            border: none;
+            color: var(--text-color);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .map-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-box {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--sidebar-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            min-width: 250px;
+            max-width: 300px;
+            display: none;
+            color: var(--text-color);
+        }
+
+        .info-box.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .info-box h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-box p {
+            color: var(--text-color);
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .keyboard-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--sidebar-bg);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            animation: fadeInOut 4s ease-in-out;
+            opacity: 0;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--border-color);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
+        }
+
+        .no-results {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .zoom-to-country-btn {
+            margin-top: 15px;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .zoom-to-country-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .sidebar.collapsed .sidebar-header h2,
+        .sidebar.collapsed .search-box,
+        .sidebar.collapsed .country-list {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            padding: 20px 10px;
+        }
+
+        .sidebar.collapsed .header-controls {
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="header-top">
+                    <h2>🌍 Countries</h2>
+                    <div class="header-controls">
+                        <button class="control-btn" id="darkModeToggle" title="Toggle Dark Mode">🌙</button>
+                        <button class="control-btn" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+                    </div>
+                </div>
+                <input type="text" class="search-box" id="searchBox" placeholder="Search countries... (or use ↑↓ keys)">
+            </div>
+            <ul class="country-list" id="countryList"></ul>
+        </div>
+        
+        <div class="map-container">
+            <div class="map-wrapper" id="mapWrapper">
+                <div class="map-controls">
+                    <button class="map-btn" id="zoomInBtn" title="Zoom In">+</button>
+                    <button class="map-btn" id="zoomOutBtn" title="Zoom Out">−</button>
+                    <button class="map-btn" id="resetZoomBtn" title="Reset View">⟲</button>
+                    <button class="map-btn" id="fullscreenBtn" title="Toggle Fullscreen">⛶</button>
+                    <button class="map-btn export-btn" id="exportBtn" title="Export as Image">📷</button>
+                </div>
+                
+                <svg id="worldMap" viewBox="0 0 1000 500"></svg>
+                
+                <div class="info-box" id="infoBox">
+                    <h3 id="countryName">Select a country</h3>
+                    <p><span class="info-label">Capital:</span> <span id="countryCapital">-</span></p>
+                    <p><span class="info-label">Currency:</span> <span id="countryCurrency">-</span></p>
+                    <button class="zoom-to-country-btn" id="zoomToCountryBtn">🎯 Zoom to Country</button>
+                </div>
+                
+                <div class="keyboard-hint" id="keyboardHint">
+                    💡 Use ↑↓ arrow keys to navigate countries
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+    <script>
+        const countries = [
+            "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+            "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+            "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon",
+            "Canada", "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+            "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", "Ecuador",
+            "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon",
+            "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+            "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+            "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "North Korea", "South Korea", "Kuwait",
+            "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
+            "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico",
+            "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru",
+            "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan",
+            "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar",
+            "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia",
+            "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa",
+            "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan",
+            "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda",
+            "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam",
+            "Yemen", "Zambia", "Zimbabwe"
+        ];
+
+        let selectedCountry = null;
+        let currentIndex = -1;
+        let filteredCountries = [...countries];
+        let geoData = null;
+        let zoomBehavior = null;
+        
+        const countryList = document.getElementById('countryList');
+        const searchBox = document.getElementById('searchBox');
+        const infoBox = document.getElementById('infoBox');
+        const sidebar = document.getElementById('sidebar');
+        const mapWrapper = document.getElementById('mapWrapper');
+        const keyboardHint = document.getElementById('keyboardHint');
+
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        let isDarkMode = false;
+        
+        darkModeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            darkModeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+            
+            // Update map colors
+            d3.selectAll('.country-path')
+                .attr('fill', d => d.properties.name === selectedCountry ? 
+                    (isDarkMode ? '#8b9eea' : '#667eea') : 
+                    (isDarkMode ? '#2a2a3e' : '#e0e0e0')
+                );
+        });
+
+        // Sidebar Toggle
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+
+        // Fullscreen Toggle
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                mapWrapper.requestFullscreen().catch(err => {
+                    mapWrapper.classList.toggle('fullscreen');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                mapWrapper.classList.remove('fullscreen');
+            }
+        });
+
+        // Keyboard Navigation
+        let keyboardHintTimeout;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (currentIndex < filteredCountries.length - 1) {
+                    currentIndex++;
+                    selectCountry(filteredCountries[currentIndex]);
+                    scrollToCountry(filteredCountries[currentIndex]);
+                }
+                showKeyboardHint();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    selectCountry(filteredCountries[currentIndex]);
+                    scrollToCountry(filteredCountries[currentIndex]);
+                }
+                showKeyboardHint();
+            }
+        });
+
+        function showKeyboardHint() {
+            clearTimeout(keyboardHintTimeout);
+            keyboardHint.style.animation = 'none';
+            setTimeout(() => {
+                keyboardHint.style.animation = 'fadeInOut 2s ease-in-out';
+            }, 10);
+        }
+
+        function scrollToCountry(country) {
+            const item = document.querySelector(`[data-country="${country}"]`);
+            if (item) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function renderCountryList(filter = '') {
+            filteredCountries = countries.filter(c => 
+                c.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            if (filteredCountries.length === 0) {
+                countryList.innerHTML = '<div class="no-results">No countries found</div>';
+                return;
+            }
+
+            countryList.innerHTML = filteredCountries.map(country => 
+                `<li class="country-item" data-country="${country}">${country}</li>`
+            ).join('');
+
+            document.querySelectorAll('.country-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    selectCountry(this.dataset.country);
+                });
+            });
+
+            if (selectedCountry && filteredCountries.includes(selectedCountry)) {
+                currentIndex = filteredCountries.indexOf(selectedCountry);
+            }
+        }
+
+        function selectCountry(country) {
+            selectedCountry = country;
+            currentIndex = filteredCountries.indexOf(country);
+            
+            document.querySelectorAll('.country-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            const item = document.querySelector(`[data-country="${country}"]`);
+            if (item) {
+                item.classList.add('selected');
+            }
+            
+            document.getElementById('countryName').textContent = country;
+            document.getElementById('countryCapital').textContent = getCountryCapital(country);
+            document.getElementById('countryCurrency').textContent = getCountryCurrency(country);
+            infoBox.classList.add('active');
+            
+            const primaryColor = isDarkMode ? '#8b9eea' : '#667eea';
+            const secondaryColor = isDarkMode ? '#9d7cc2' : '#764ba2';
+            const defaultColor = isDarkMode ? '#2a2a3e' : '#e0e0e0';
+            
+            d3.selectAll('.country-path')
+                .transition()
+                .duration(300)
+                .attr('fill', d => d.properties.name === country ? primaryColor : defaultColor)
+                .attr('stroke', d => d.properties.name === country ? secondaryColor : (isDarkMode ? '#444' : '#999'))
+                .attr('stroke-width', d => d.properties.name === country ? 0.8 : 0.2);
+        }
+
+        function getCountryCapital(country) {
+            const capitals = {
+                "United States": "Washington, D.C.",
+                "United Kingdom": "London",
+                "Germany": "Berlin",
+                "France": "Paris",
+                "Italy": "Rome",
+                "Spain": "Madrid",
+                "Canada": "Ottawa",
+                "Australia": "Canberra",
+                "Japan": "Tokyo",
+                "China": "Beijing",
+                "India": "New Delhi",
+                "Brazil": "Brasília",
+                "Russia": "Moscow",
+                "Mexico": "Mexico City",
+                "South Korea": "Seoul",
+                "Argentina": "Buenos Aires",
+                "Egypt": "Cairo",
+                "South Africa": "Pretoria, Cape Town, Bloemfontein",
+                "Nigeria": "Abuja",
+                "Kenya": "Nairobi",
+                "Turkey": "Ankara",
+                "Indonesia": "Jakarta",
+                "Thailand": "Bangkok",
+                "Netherlands": "Amsterdam",
+                "Switzerland": "Bern",
+                "Sweden": "Stockholm",
+                "Norway": "Oslo",
+                "Poland": "Warsaw",
+                "Ukraine": "Kyiv",
+                "Greece": "Athens",
+                "Portugal": "Lisbon",
+                "Austria": "Vienna",
+                "Belgium": "Brussels",
+                "Denmark": "Copenhagen",
+                "Finland": "Helsinki",
+                "Ireland": "Dublin",
+                "Czech Republic": "Prague",
+                "Hungary": "Budapest",
+                "Romania": "Bucharest",
+                "Bulgaria": "Sofia",
+                "Croatia": "Zagreb",
+                "Slovakia": "Bratislava",
+                "Slovenia": "Ljubljana",
+                "Lithuania": "Vilnius",
+                "Latvia": "Riga",
+                "Estonia": "Tallinn",
+                "Malta": "Valletta",
+                "Cyprus": "Nicosia",
+                "Luxembourg": "Luxembourg City",
+                "Monaco": "Monaco",
+                "Iceland": "Reykjavik",
+                "Albania": "Tirana",
+                "North Macedonia": "Skopje",
+                "Serbia": "Belgrade",
+                "Montenegro": "Podgorica",
+                "Bosnia and Herzegovina": "Sarajevo",
+                "Kosovo": "Pristina",
+                "Moldova": "Chișinău",
+                "Belarus": "Minsk",
+                "Georgia": "Tbilisi",
+                "Armenia": "Yerevan",
+                "Azerbaijan": "Baku",
+                "Kazakhstan": "Nur-Sultan",
+                "Uzbekistan": "Tashkent",
+                "Turkmenistan": "Ashgabat",
+                "Tajikistan": "Dushanbe",
+                "Kyrgyzstan": "Bishkek",
+                "Afghanistan": "Kabul",
+                "Pakistan": "Islamabad",
+                "Bangladesh": "Dhaka",
+                "Sri Lanka": "Colombo, Sri Jayawardenepura Kotte",
+                "Nepal": "Kathmandu",
+                "Bhutan": "Thimphu",
+                "Maldives": "Malé",
+                "Myanmar": "Naypyidaw",
+                "Laos": "Vientiane",
+                "Cambodia": "Phnom Penh",
+                "Vietnam": "Hanoi",
+                "Malaysia": "Kuala Lumpur, Putrajaya",
+                "Singapore": "Singapore",
+                "Philippines": "Manila",
+                "Brunei": "Bandar Seri Begawan",
+                "East Timor": "Dili",
+                "Papua New Guinea": "Port Moresby",
+                "New Zealand": "Wellington",
+                "Fiji": "Suva",
+                "Solomon Islands": "Honiara",
+                "Vanuatu": "Port Vila",
+                "Samoa": "Apia",
+                "Tonga": "Nukuʻalofa",
+                "Tuvalu": "Funafuti",
+                "Kiribati": "South Tarawa",
+                "Marshall Islands": "Majuro",
+                "Palau": "Ngerulmud",
+                "Micronesia": "Palikir",
+                "Nauru": "Yaren",
+                "Saudi Arabia": "Riyadh",
+                "United Arab Emirates": "Abu Dhabi",
+                "Qatar": "Doha",
+                "Kuwait": "Kuwait City",
+                "Bahrain": "Manama",
+                "Oman": "Muscat",
+                "Yemen": "Sana'a",
+                "Jordan": "Amman",
+                "Lebanon": "Beirut",
+                "Syria": "Damascus",
+                "Iraq": "Baghdad",
+                "Iran": "Tehran",
+                "Israel": "Jerusalem",
+                "Palestine": "Ramallah",
+                "Libya": "Tripoli",
+                "Tunisia": "Tunis",
+                "Algeria": "Algiers",
+                "Morocco": "Rabat",
+                "Mauritania": "Nouakchott",
+                "Mali": "Bamako",
+                "Niger": "Niamey",
+                "Chad": "N'Djamena",
+                "Sudan": "Khartoum",
+                "Eritrea": "Asmara",
+                "Djibouti": "Djibouti",
+                "Somalia": "Mogadishu",
+                "Ethiopia": "Addis Ababa",
+                "Uganda": "Kampala",
+                "Kenya": "Nairobi",
+                "Tanzania": "Dodoma",
+                "Rwanda": "Kigali",
+                "Burundi": "Gitega",
+                "Democratic Republic of the Congo": "Kinshasa",
+                "Republic of the Congo": "Brazzaville",
+                "Gabon": "Libreville",
+                "Equatorial Guinea": "Malabo",
+                "Cameroon": "Yaoundé",
+                "Central African Republic": "Bangui",
+                "Angola": "Luanda",
+                "Zambia": "Lusaka",
+                "Zimbabwe": "Harare",
+                "Botswana": "Gaborone",
+                "Namibia": "Windhoek",
+                "South Africa": "Pretoria, Cape Town, Bloemfontein",
+                "Lesotho": "Maseru",
+                "Eswatini": "Mbabane",
+                "Madagascar": "Antananarivo",
+                "Mozambique": "Maputo",
+                "Comoros": "Moroni",
+                "Seychelles": "Victoria",
+                "Mauritius": "Port Louis",
+                "Réunion": "Saint-Denis",
+                "Mayotte": "Mamoudzou",
+                "Cape Verde": "Praia",
+                "Senegal": "Dakar",
+                "Gambia": "Banjul",
+                "Guinea-Bissau": "Bissau",
+                "Guinea": "Conakry",
+                "Sierra Leone": "Freetown",
+                "Liberia": "Monrovia",
+                "Côte d'Ivoire": "Yamoussoukro",
+                "Ghana": "Accra",
+                "Togo": "Lomé",
+                "Benin": "Porto-Novo",
+                "Burkina Faso": "Ouagadougou",
+                "Niger": "Niamey",
+                "Nigeria": "Abuja",
+                "Chad": "N'Djamena",
+                "Cameroon": "Yaoundé",
+                "Central African Republic": "Bangui",
+                "Equatorial Guinea": "Malabo",
+                "Gabon": "Libreville",
+                "Republic of the Congo": "Brazzaville",
+                "Democratic Republic of the Congo": "Kinshasa",
+                "São Tomé and Príncipe": "São Tomé",
+                "Venezuela": "Caracas",
+                "Colombia": "Bogotá",
+                "Ecuador": "Quito",
+                "Peru": "Lima",
+                "Bolivia": "Sucre, La Paz",
+                "Chile": "Santiago",
+                "Argentina": "Buenos Aires",
+                "Paraguay": "Asunción",
+                "Uruguay": "Montevideo",
+                "Guyana": "Georgetown",
+                "Suriname": "Paramaribo",
+                "French Guiana": "Cayenne",
+                "Falkland Islands": "Stanley",
+                "South Georgia and the South Sandwich Islands": "King Edward Point",
+                "Antigua and Barbuda": "St. John's",
+                "Barbados": "Bridgetown",
+                "Dominica": "Roseau",
+                "Grenada": "St. George's",
+                "Saint Kitts and Nevis": "Basseterre",
+                "Saint Lucia": "Castries",
+                "Saint Vincent and the Grenadines": "Kingstown",
+                "Trinidad and Tobago": "Port of Spain",
+                "Jamaica": "Kingston",
+                "Haiti": "Port-au-Prince",
+                "Dominican Republic": "Santo Domingo",
+                "Cuba": "Havana",
+                "Bahamas": "Nassau",
+                "Belize": "Belmopan",
+                "Guatemala": "Guatemala City",
+                "El Salvador": "San Salvador",
+                "Honduras": "Tegucigalpa",
+                "Nicaragua": "Managua",
+                "Costa Rica": "San José",
+                "Panama": "Panama City",
+                "Puerto Rico": "San Juan",
+                "U.S. Virgin Islands": "Charlotte Amalie",
+                "British Virgin Islands": "Road Town",
+                "Anguilla": "The Valley",
+                "Saint Martin": "Marigot",
+                "Sint Maarten": "Philipsburg",
+                "Saint Barthélemy": "Gustavia",
+                "Martinique": "Fort-de-France",
+                "Guadeloupe": "Basse-Terre",
+                "Montserrat": "Plymouth",
+                "Turks and Caicos Islands": "Cockburn Town",
+                "Cayman Islands": "George Town",
+                "Bermuda": "Hamilton",
+                "Greenland": "Nuuk",
+                "Saint Pierre and Miquelon": "Saint-Pierre",
+                "Faroe Islands": "Tórshavn",
+                "Åland Islands": "Mariehamn",
+                "Isle of Man": "Douglas",
+                "Jersey": "Saint Helier",
+                "Guernsey": "St. Peter Port",
+                "Gibraltar": "Gibraltar",
+                "Svalbard and Jan Mayen": "Longyearbyen",
+                "Norfolk Island": "Kingston",
+                "Christmas Island": "Flying Fish Cove",
+                "Cocos (Keeling) Islands": "West Island",
+                "Heard Island and McDonald Islands": "None",
+                "Ashmore and Cartier Islands": "None",
+                "Coral Sea Islands": "None",
+                "American Samoa": "Pago Pago",
+                "Cook Islands": "Avarua",
+                "Niue": "Alofi",
+                "Tokelau": "Atafu, Nukunonu, Fakaofo",
+                "Pitcairn Islands": "Adamstown",
+                "French Polynesia": "Papeete",
+                "New Caledonia": "Nouméa",
+                "Wallis and Futuna": "Mata-Utu",
+                "Saint Helena, Ascension and Tristan da Cunha": "Jamestown",
+                "Bouvet Island": "None",
+                "South Sudan": "Juba"
+            };
+            return capitals[country] || "Unknown";
+        }
+
+        function getCountryCurrency(country) {
+            const currencies = {
+                "United States": "US Dollar (USD)",
+                "United Kingdom": "Pound Sterling (GBP)",
+                "Germany": "Euro (EUR)",
+                "France": "Euro (EUR)",
+                "Italy": "Euro (EUR)",
+                "Spain": "Euro (EUR)",
+                "Canada": "Canadian Dollar (CAD)",
+                "Australia": "Australian Dollar (AUD)",
+                "Japan": "Yen (JPY)",
+                "China": "Renminbi (CNY)",
+                "India": "Indian Rupee (INR)",
+                "Brazil": "Brazilian Real (BRL)",
+                "Russia": "Russian Ruble (RUB)",
+                "Mexico": "Mexican Peso (MXN)",
+                "South Korea": "South Korean Won (KRW)",
+                "Argentina": "Argentine Peso (ARS)",
+                "Egypt": "Egyptian Pound (EGP)",
+                "South Africa": "South African Rand (ZAR)",
+                "Nigeria": "Nigerian Naira (NGN)",
+                "Kenya": "Kenyan Shilling (KES)",
+                "Turkey": "Turkish Lira (TRY)",
+                "Indonesia": "Indonesian Rupiah (IDR)",
+                "Thailand": "Thai Baht (THB)",
+                "Netherlands": "Euro (EUR)",
+                "Switzerland": "Swiss Franc (CHF)",
+                "Sweden": "Swedish Krona (SEK)",
+                "Norway": "Norwegian Krone (NOK)",
+                "Poland": "Polish Złoty (PLN)",
+                "Ukraine": "Ukrainian Hryvnia (UAH)",
+                "Greece": "Euro (EUR)",
+                "Portugal": "Euro (EUR)",
+                "Austria": "Euro (EUR)",
+                "Belgium": "Euro (EUR)",
+                "Denmark": "Danish Krone (DKK)",
+                "Finland": "Euro (EUR)",
+                "Ireland": "Euro (EUR)",
+                "Czech Republic": "Czech Koruna (CZK)",
+                "Hungary": "Hungarian Forint (HUF)",
+                "Romania": "Romanian Leu (RON)",
+                "Bulgaria": "Bulgarian Lev (BGN)",
+                "Croatia": "Euro (EUR)",
+                "Slovakia": "Euro (EUR)",
+                "Slovenia": "Euro (EUR)",
+                "Lithuania": "Euro (EUR)",
+                "Latvia": "Euro (EUR)",
+                "Estonia": "Euro (EUR)",
+                "Malta": "Euro (EUR)",
+                "Cyprus": "Euro (EUR)",
+                "Luxembourg": "Euro (EUR)",
+                "Monaco": "Euro (EUR)",
+                "Iceland": "Icelandic Króna (ISK)",
+                "Albania": "Albanian Lek (ALL)",
+                "North Macedonia": "Macedonian Denar (MKD)",
+                "Serbia": "Serbian Dinar (RSD)",
+                "Montenegro": "Euro (EUR)",
+                "Bosnia and Herzegovina": "Bosnia and Herzegovina Convertible Mark (BAM)",
+                "Kosovo": "Euro (EUR)",
+                "Moldova": "Moldovan Leu (MDL)",
+                "Belarus": "Belarusian Ruble (BYN)",
+                "Georgia": "Georgian Lari (GEL)",
+                "Armenia": "Armenian Dram (AMD)",
+                "Azerbaijan": "Azerbaijani Manat (AZN)",
+                "Kazakhstan": "Kazakhstani Tenge (KZT)",
+                "Uzbekistan": "Uzbekistan Som (UZS)",
+                "Turkmenistan": "Turkmenistan Manat (TMT)",
+                "Tajikistan": "Tajikistani Somoni (TJS)",
+                "Kyrgyzstan": "Kyrgyzstani Som (KGS)",
+                "Afghanistan": "Afghan Afghani (AFN)",
+                "Pakistan": "Pakistani Rupee (PKR)",
+                "Bangladesh": "Bangladeshi Taka (BDT)",
+                "Sri Lanka": "Sri Lankan Rupee (LKR)",
+                "Nepal": "Nepalese Rupee (NPR)",
+                "Bhutan": "Bhutanese Ngultrum (BTN)",
+                "Maldives": "Maldivian Rufiyaa (MVR)",
+                "Myanmar": "Myanmar Kyat (MMK)",
+                "Laos": "Lao Kip (LAK)",
+                "Cambodia": "Cambodian Riel (KHR)",
+                "Vietnam": "Vietnamese Đồng (VND)",
+                "Malaysia": "Malaysian Ringgit (MYR)",
+                "Singapore": "Singapore Dollar (SGD)",
+                "Philippines": "Philippine Peso (PHP)",
+                "Brunei": "Brunei Dollar (BND)",
+                "East Timor": "United States Dollar (USD)",
+                "Papua New Guinea": "Papua New Guinean Kina (PGK)",
+                "New Zealand": "New Zealand Dollar (NZD)",
+                "Fiji": "Fijian Dollar (FJD)",
+                "Solomon Islands": "Solomon Islands Dollar (SBD)",
+                "Vanuatu": "Vanuatu Vatu (VUV)",
+                "Samoa": "Samoan Tālā (WST)",
+                "Tonga": "Tongan Paʻanga (TOP)",
+                "Tuvalu": "Tuvaluan Dollar (TVD)",
+                "Kiribati": "Kiribati Dollar (KID)",
+                "Marshall Islands": "United States Dollar (USD)",
+                "Palau": "United States Dollar (USD)",
+                "Micronesia": "United States Dollar (USD)",
+                "Nauru": "Australian Dollar (AUD)",
+                "Saudi Arabia": "Saudi Riyal (SAR)",
+                "United Arab Emirates": "United Arab Emirates Dirham (AED)",
+                "Qatar": "Qatari Riyal (QAR)",
+                "Kuwait": "Kuwaiti Dinar (KWD)",
+                "Bahrain": "Bahraini Dinar (BHD)",
+                "Oman": "Omani Rial (OMR)",
+                "Yemen": "Yemeni Rial (YER)",
+                "Jordan": "Jordanian Dinar (JOD)",
+                "Lebanon": "Lebanese Pound (LBP)",
+                "Syria": "Syrian Pound (SYP)",
+                "Iraq": "Iraqi Dinar (IQD)",
+                "Iran": "Iranian Rial (IRR)",
+                "Israel": "Israeli New Shekel (ILS)",
+                "Palestine": "Israeli New Shekel (ILS)",
+                "Libya": "Libyan Dinar (LYD)",
+                "Tunisia": "Tunisian Dinar (TND)",
+                "Algeria": "Algerian Dinar (DZD)",
+                "Morocco": "Moroccan Dirham (MAD)",
+                "Mauritania": "Mauritanian Ouguiya (MRU)",
+                "Mali": "West African CFA Franc (XOF)",
+                "Niger": "West African CFA Franc (XOF)",
+                "Chad": "Central African CFA Franc (XAF)",
+                "Sudan": "Sudanese Pound (SDG)",
+                "Eritrea": "Eritrean Nakfa (ERN)",
+                "Djibouti": "Djiboutian Franc (DJF)",
+                "Somalia": "Somali Shilling (SOS)",
+                "Ethiopia": "Ethiopian Birr (ETB)",
+                "Uganda": "Ugandan Shilling (UGX)",
+                "Tanzania": "Tanzanian Shilling (TZS)",
+                "Rwanda": "Rwandan Franc (RWF)",
+                "Burundi": "Burundian Franc (BIF)",
+                "Democratic Republic of the Congo": "Congolese Franc (CDF)",
+                "Republic of the Congo": "Central African CFA Franc (XAF)",
+                "Gabon": "Central African CFA Franc (XAF)",
+                "Equatorial Guinea": "Central African CFA Franc (XAF)",
+                "Cameroon": "Central African CFA Franc (XAF)",
+                "Central African Republic": "Central African CFA Franc (XAF)",
+                "Angola": "Angolan Kwanza (AOA)",
+                "Zambia": "Zambian Kwacha (ZMW)",
+                "Zimbabwe": "United States Dollar (USD)",
+                "Botswana": "Botswana Pula (BWP)",
+                "Namibia": "Namibian Dollar (NAD)",
+                "Lesotho": "Lesotho Loti (LSL)",
+                "Eswatini": "Lilangeni (SZL)",
+                "Madagascar": "Malagasy Ariary (MGA)",
+                "Mozambique": "Mozambican Metical (MZN)",
+                "Comoros": "Comorian Franc (KMF)",
+                "Seychelles": "Seychellois Rupee (SCR)",
+                "Mauritius": "Mauritian Rupee (MUR)",
+                "Cape Verde": "Cape Verdean Escudo (CVE)",
+                "Senegal": "West African CFA Franc (XOF)",
+                "Gambia": "Gambian Dalasi (GMD)",
+                "Guinea-Bissau": "West African CFA Franc (XOF)",
+                "Guinea": "Guinean Franc (GNF)",
+                "Sierra Leone": "Sierra Leonean Leone (SLL)",
+                "Liberia": "Liberian Dollar (LRD)",
+                "Côte d'Ivoire": "West African CFA Franc (XOF)",
+                "Ghana": "Ghanaian Cedi (GHS)",
+                "Togo": "West African CFA Franc (XOF)",
+                "Benin": "West African CFA Franc (XOF)",
+                "Burkina Faso": "West African CFA Franc (XOF)",
+                "Niger": "West African CFA Franc (XOF)",
+                "Nigeria": "Nigerian Naira (NGN)",
+                "Chad": "Central African CFA Franc (XAF)",
+                "Cameroon": "Central African CFA Franc (XAF)",
+                "Central African Republic": "Central African CFA Franc (XAF)",
+                "Equatorial Guinea": "Central African CFA Franc (XAF)",
+                "Gabon": "Central African CFA Franc (XAF)",
+                "Republic of the Congo": "Central African CFA Franc (XAF)",
+                "Democratic Republic of the Congo": "Congolese Franc (CDF)",
+                "São Tomé and Príncipe": "São Tomé and Príncipe Dobra (STN)",
+                "Venezuela": "Venezuelan Bolívar (VES)",
+                "Colombia": "Colombian Peso (COP)",
+                "Ecuador": "United States Dollar (USD)",
+                "Peru": "Peruvian Sol (PEN)",
+                "Bolivia": "Bolivian Boliviano (BOB)",
+                "Chile": "Chilean Peso (CLP)",
+                "Argentina": "Argentine Peso (ARS)",
+                "Paraguay": "Paraguayan Guaraní (PYG)",
+                "Uruguay": "Uruguayan Peso (UYU)",
+                "Guyana": "Guyanese Dollar (GYD)",
+                "Suriname": "Surinamese Dollar (SRD)",
+                "French Guiana": "Euro (EUR)",
+                "Falkland Islands": "Falkland Islands Pound (FKP)",
+                "South Georgia and the South Sandwich Islands": "Falkland Islands Pound (FKP)",
+                "Antigua and Barbuda": "East Caribbean Dollar (XCD)",
+                "Barbados": "Barbadian Dollar (BBD)",
+                "Dominica": "East Caribbean Dollar (XCD)",
+                "Grenada": "East Caribbean Dollar (XCD)",
+                "Saint Kitts and Nevis": "East Caribbean Dollar (XCD)",
+                "Saint Lucia": "East Caribbean Dollar (XCD)",
+                "Saint Vincent and the Grenadines": "East Caribbean Dollar (XCD)",
+                "Trinidad and Tobago": "Trinidad and Tobago Dollar (TTD)",
+                "Jamaica": "Jamaican Dollar (JMD)",
+                "Haiti": "Haitian Gourde (HTG)",
+                "Dominican Republic": "Dominican Peso (DOP)",
+                "Cuba": "Cuban Peso (CUP)",
+                "Bahamas": "Bahamian Dollar (BSD)",
+                "Belize": "Belize Dollar (BZD)",
+                "Guatemala": "Guatemalan Quetzal (GTQ)",
+                "El Salvador": "United States Dollar (USD)",
+                "Honduras": "Honduran Lempira (HNL)",
+                "Nicaragua": "Nicaraguan Córdoba (NIO)",
+                "Costa Rica": "Costa Rican Colón (CRC)",
+                "Panama": "Panamanian Balboa (PAB)",
+                "Puerto Rico": "United States Dollar (USD)",
+                "U.S. Virgin Islands": "United States Dollar (USD)",
+                "British Virgin Islands": "United States Dollar (USD)",
+                "Anguilla": "East Caribbean Dollar (XCD)",
+                "Saint Martin": "Euro (EUR)",
+                "Sint Maarten": "Netherlands Antillean Guilder (ANG)",
+                "Saint Barthélemy": "Euro (EUR)",
+                "Martinique": "Euro (EUR)",
+                "Guadeloupe": "Euro (EUR)",
+                "Montserrat": "East Caribbean Dollar (XCD)",
+                "Turks and Caicos Islands": "United States Dollar (USD)",
+                "Cayman Islands": "Cayman Islands Dollar (KYD)",
+                "Bermuda": "Bermudian Dollar (BMD)",
+                "Greenland": "Danish Krone (DKK)",
+                "Saint Pierre and Miquelon": "Euro (EUR)",
+                "Faroe Islands": "Faroese Króna (FOK)",
+                "Åland Islands": "Euro (EUR)",
+                "Isle of Man": "Manx Pound (IMP)",
+                "Jersey": "Jersey Pound (JEP)",
+                "Guernsey": "Guernsey Pound (GGP)",
+                "Gibraltar": "Gibraltar Pound (GIP)",
+                "Svalbard and Jan Mayen": "Norwegian Krone (NOK)",
+                "Norfolk Island": "Australian Dollar (AUD)",
+                "Christmas Island": "Australian Dollar (AUD)",
+                "Cocos (Keeling) Islands": "Australian Dollar (AUD)",
+                "Heard Island and McDonald Islands": "Australian Dollar (AUD)",
+                "Ashmore and Cartier Islands": "Australian Dollar (AUD)",
+                "Coral Sea Islands": "Australian Dollar (AUD)",
+                "American Samoa": "United States Dollar (USD)",
+                "Cook Islands": "New Zealand Dollar (NZD)",
+                "Niue": "New Zealand Dollar (NZD)",
+                "Tokelau": "New Zealand Dollar (NZD)",
+                "Pitcairn Islands": "New Zealand Dollar (NZD)",
+                "French Polynesia": "CFP Franc (XPF)",
+                "New Caledonia": "CFP Franc (XPF)",
+                "Wallis and Futuna": "CFP Franc (XPF)",
+                "Saint Helena, Ascension and Tristan da Cunha": "Saint Helena Pound (SHP)",
+                "Bouvet Island": "Norwegian Krone (NOK)",
+                "South Sudan": "South Sudanese Pound (SSP)"
+            };
+            return currencies[country] || "Unknown";
+        }
+
+        searchBox.addEventListener('input', (e) => {
+            renderCountryList(e.target.value);
+        });
+
+        // Map Setup
+        const width = 1000;
+        const height = 500;
+        const svg = d3.select('#worldMap');
+
+        const projection = d3.geoMercator()
+            .scale(150)
+            .translate([width / 2, height / 1.5]);
+
+        const path = d3.geoPath().projection(projection);
+
+        const g = svg.append('g');
+
+        zoomBehavior = d3.zoom()
+            .scaleExtent([1, 8])
+            .on('zoom', (event) => {
+                g.attr('transform', event.transform);
+            });
+
+        svg.call(zoomBehavior);
+
+        // Zoom Controls
+        document.getElementById('zoomInBtn').addEventListener('click', () => {
+            svg.transition().call(zoomBehavior.scaleBy, 1.5);
+        });
+
+        document.getElementById('zoomOutBtn').addEventListener('click', () => {
+            svg.transition().call(zoomBehavior.scaleBy, 0.67);
+        });
+
+        document.getElementById('resetZoomBtn').addEventListener('click', () => {
+            svg.transition().call(zoomBehavior.transform, d3.zoomIdentity);
+        });
+
+        // Zoom to Country
+        document.getElementById('zoomToCountryBtn').addEventListener('click', () => {
+            if (selectedCountry && geoData) {
+                const feature = geoData.features.find(f => f.properties.name === selectedCountry);
+                if (feature) {
+                    const bounds = path.bounds(feature);
+                    const dx = bounds[1][0] - bounds[0][0];
+                    const dy = bounds[1][1] - bounds[0][1];
+                    const x = (bounds[0][0] + bounds[1][0]) / 2;
+                    const y = (bounds[0][1] + bounds[1][1]) / 2;
+                    const scale = Math.min(8, 0.9 / Math.max(dx / width, dy / height));
+                    const translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+                    svg.transition()
+                        .duration(750)
+                        .call(zoomBehavior.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+                }
+            }
+        });
+
+        // Export Map
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const svgElement = document.getElementById('worldMap');
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(svgElement);
+            const canvas = document.createElement('canvas');
+            canvas.width = 2000;
+            canvas.height = 1000;
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            img.onload = () => {
+                ctx.fillStyle = isDarkMode ? '#1e1e2e' : '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                
+                canvas.toBlob((blob) => {
+                    const link = document.createElement('a');
+                    link.download = `world-map-${selectedCountry || 'export'}.png`;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                });
+            };
+            
+            img.src = url;
+        });
+
+        // Load Map Data
+        d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+            .then(data => {
+                geoData = topojson.feature(data, data.objects.countries);
+                
+                g.selectAll('path')
+                    .data(geoData.features)
+                    .enter()
+                    .append('path')
+                    .attr('class', 'country-path')
+                    .attr('d', path)
+                    .attr('fill', '#e0e0e0')
+                    .attr('stroke', '#999')
+                    .attr('stroke-width', 0.2)
+                    .style('cursor', 'pointer')
+                    .on('mouseover', function(event, d) {
+                        if (d.properties.name !== selectedCountry) {
+                            d3.select(this)
+                                .transition()
+                                .duration(200)
+                                .attr('fill', isDarkMode ? '#4a4a6e' : '#b8c5f0');
+                        }
+                    })
+                    .on('mouseout', function(event, d) {
+                        if (d.properties.name !== selectedCountry) {
+                            d3.select(this)
+                                .transition()
+                                .duration(200)
+                                .attr('fill', isDarkMode ? '#2a2a3e' : '#e0e0e0');
+                        }
+                    })
+                    .on('click', function(event, d) {
+                        if (d.properties.name) {
+                            selectCountry(d.properties.name);
+                        }
+                    });
+                    
+                // Show keyboard hint on load
+                setTimeout(() => {
+                    showKeyboardHint();
+                }, 1000);
+            });
+
+        renderCountryList();
+    </script>
+</body>
+</html>
