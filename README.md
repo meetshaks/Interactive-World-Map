@@ -79,7 +79,6 @@
 ---
 
 ## Screenshots
-> Add screenshots to `/assets/images/` and reference them here.
 
 - Sidebar + Map
   ![sidebar-map](assets/images/sidebar-map.png)
@@ -326,9 +325,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### MD. SHAKIL MIA
 
-[![Portfolio](https://img.shields.io/badge/Portfolio-Visit_Site-blue?style=for-the-badge&logo=googleearth)]([[https://yourportfolio.com](https://meetshaks.github.io/Shakil_Ahmed/#home)](https://meetshaks.github.io/Shakil_Ahmed/#home))
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)]([[https://linkedin.com/in/yourusername](https://www.linkedin.com/in/shakil-ahmed-dev/)](https://www.linkedin.com/in/shakil-ahmed-dev/))
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=for-the-badge&logo=github)]([[https://github.com/yourusername](https://github.com/meetshaks)](https://github.com/meetshaks))
+[![Portfolio](https://img.shields.io/badge/Portfolio-Visit_Site-blue?style=for-the-badge&logo=googleearth)](https://meetshaks.github.io/Shakil_Ahmed/#home)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/shakil-ahmed-dev/)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=for-the-badge&logo=github)](https://github.com/meetshaks)
 
 </div>  
 
