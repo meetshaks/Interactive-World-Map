@@ -79,7 +79,6 @@
 ---
 
 ## Screenshots
-> Add screenshots to `/assets/images/` and reference them here.
 
 - Sidebar + Map
   ![sidebar-map](assets/images/sidebar-map.png)
